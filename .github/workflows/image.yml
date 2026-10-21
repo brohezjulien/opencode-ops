@@ -50,7 +50,7 @@ jobs:
           # Les couches lourdes (Blender, FreeCAD, chromium, ollama) sont
           # réutilisées d'un run à l'autre quand le Dockerfile ne change pas.
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
 
       # BLOQUANT : une image qui échoue ici n'est jamais publiée.
       - name: Smoke test (bloquant)
