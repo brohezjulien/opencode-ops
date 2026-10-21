@@ -1,0 +1,52 @@
+# =============================================================================
+# compose.example.yaml — à recopier sur l'hôte : /opt/stack/opencode/docker-compose.yml
+#
+# Différences avec l'ancien compose (image dérivée construite sur le VPS) :
+#   + init: true          → le conteneur récolte ses processus enfants (zombies)
+#   + healthcheck         → Docker redémarre si le serveur ne répond plus
+#   + env_file: .env      → le mot de passe SORT du compose (non versionné)
+#   + image publiée       → construit et testé par la CI, jamais sur la prod
+#
+# Le mot de passe se met dans /opt/stack/opencode/.env :
+#   OPENCODE_SERVER_PASSWORD='...'
+#
+# Mise à jour :  docker compose pull opencode && docker compose up -d opencode
+# Rollback    :  changer le tag ci-dessous puis relancer les deux mêmes commandes
+# =============================================================================
+
+services:
+  opencode:
+    # Tag FIGÉ (version OpenCode + date de publication CI). Jamais `:latest` en prod.
+    image: ghcr.io/brohezjulien/opencode-toolbox:2.1.2-20261021
+    container_name: opencode
+    init: true
+    restart: unless-stopped
+    working_dir: /root/workspace
+    command: ["serve", "--hostname", "0.0.0.0", "--port", "4096"]
+    env_file: .env
+    volumes:
+      - ./.config:/root/.config
+      - ./workspace:/root/workspace
+      - ./data:/root/.local/share/opencode
+    healthcheck:
+      # La racine "/" est publique (contrairement à /api/*, qui exige l'auth).
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4096/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.opencode.rule=Host(`code.jbrohez.be`)"
+      - "traefik.http.routers.opencode.entrypoints=websecure"
+      - "traefik.http.routers.opencode.tls.certresolver=letsencrypt"
+      - "traefik.http.services.opencode.loadbalancer.server.port=4096"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  proxy:
+    external: true

@@ -1,0 +1,82 @@
+name: Image OpenCode toolbox
+
+# Construit l'image, la TESTE, et ne la publie que si tout passe.
+# L'hôte ne construit plus rien : il tire l'image publiée.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "oc.sh"
+      - "ocp.sh"
+      - "smoke-test.sh"
+      - ".github/workflows/image.yml"
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/opencode-toolbox
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version OpenCode attendue, lue DANS le Dockerfile : impossible de publier
+      # une image dont la version ne correspond pas au FROM.
+      - name: Lire la version OpenCode du Dockerfile
+        id: ver
+        run: |
+          V=$(sed -n 's|^FROM .*opencode:\([0-9][^ @]*\).*|\1|p' Dockerfile | head -1)
+          test -n "$V" || { echo "ERREUR: version illisible dans le Dockerfile"; exit 1; }
+          echo "opencode=$V" >> "$GITHUB_OUTPUT"
+          echo "Version OpenCode : $V"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Construire (sans publier)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: ci/candidate:test
+          # Les couches lourdes (Blender, FreeCAD, chromium, ollama) sont
+          # réutilisées d'un run à l'autre quand le Dockerfile ne change pas.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # BLOQUANT : une image qui échoue ici n'est jamais publiée.
+      - name: Smoke test (bloquant)
+        run: |
+          docker run --rm --entrypoint /bin/sh \
+            -v "$PWD/smoke-test.sh:/smoke-test.sh:ro" \
+            -e "EXPECT_OPENCODE=${{ steps.ver.outputs.opencode }}" \
+            ci/candidate:test /smoke-test.sh
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publier
+        run: |
+          TAG="${{ steps.ver.outputs.opencode }}-$(date -u +%Y%m%d)"
+          docker tag ci/candidate:test "$IMAGE:$TAG"
+          docker tag ci/candidate:test "$IMAGE:latest"
+          docker push "$IMAGE:$TAG"
+          docker push "$IMAGE:latest"
+          {
+            echo "### Image publiée"
+            echo ""
+            echo '```'
+            echo "$IMAGE:$TAG"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
