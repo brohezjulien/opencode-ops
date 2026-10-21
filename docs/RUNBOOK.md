@@ -7,7 +7,7 @@
    FROM ghcr.io/anomalyco/opencode:<nouvelle version>
    ```
 2. Commit sur `main` → la CI construit, teste, publie.
-3. Noter le tag publié dans le résumé du run : `…:<version>-<AAAAMMJJ>`.
+3. Noter le tag publié dans le résumé du run : `…:<version>-<AAAAMMJJ>-<sha>`.
 
 > Si le smoke test échoue, **rien n'est publié**. Lire le log du step
 > « Smoke test (bloquant) » : il nomme l'outil en défaut.

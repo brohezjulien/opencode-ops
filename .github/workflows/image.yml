@@ -68,13 +68,23 @@ jobs:
 
       - name: Publier
         run: |
-          TAG="${{ steps.ver.outputs.opencode }}-$(date -u +%Y%m%d)"
+          # Tag UNIQUE : version + date + empreinte du commit. Deux builds le même
+          # jour ne peuvent plus se heurter (cause du "unknown blob" du 21/10).
+          TAG="${{ steps.ver.outputs.opencode }}-$(date -u +%Y%m%d)-${GITHUB_SHA::7}"
+          push_retry() {
+            n=1
+            until docker push "$1"; do
+              [ "$n" -ge 3 ] && { echo "ECHEC : push de $1 apres 3 tentatives" >&2; return 1; }
+              echo "push de $1 : tentative $n echouee, nouvel essai dans 15s"
+              n=$((n + 1)); sleep 15
+            done
+          }
           docker tag ci/candidate:test "$IMAGE:$TAG"
+          push_retry "$IMAGE:$TAG"
           docker tag ci/candidate:test "$IMAGE:latest"
-          docker push "$IMAGE:$TAG"
-          docker push "$IMAGE:latest"
+          push_retry "$IMAGE:latest"
           {
-            echo "### Image publiée"
+            echo "### Image publiee"
             echo ""
             echo '```'
             echo "$IMAGE:$TAG"
