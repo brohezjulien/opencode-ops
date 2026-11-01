@@ -15,6 +15,7 @@ la machine de production.
 | `smoke-test.sh` | vérifie **fonctionnellement** chaque outil — utilisé par la CI **et** en secours |
 | `oc.sh` / `ocp.sh` | raccourcis cuits dans l'image : session tmux persistante / appairage QR |
 | `compose.example.yaml` | le compose à installer sur l'hôte |
+| `config/opencode.jsonc` | **source de vérité** de la config OpenCode globale (copiée dans `~/.config/opencode/`) |
 | `.github/workflows/image.yml` | construit → teste → publie sur `ghcr.io` |
 | `docs/RUNBOOK.md` | mise à jour, rollback, pannes |
 
@@ -44,6 +45,18 @@ docker compose up -d opencode
 docker compose up -d --force-recreate opencode
 ```
 
+## Config OpenCode (globale)
+
+`config/opencode.jsonc` est la copie versionnée de `~/.config/opencode/opencode.jsonc`
+(et de `elearning7P/infra/opencode-global.jsonc`). Règles :
+
+- **un seul niveau commun** : agents, modèle, compaction, permissions, commandes ;
+  le spécifique à un projet (MCP, watcher) reste dans son `opencode.json` ;
+- **modèles en `opencode/…`** : 2.2.5 a fusionné l'ancien fournisseur `opencode-go`
+  dans `opencode` — un `opencode-go/…` ne résout plus et retombe sur un modèle gratuit ;
+- **`compaction.buffer: "60%"`** (pourcentage, plus de bloc `providers.limit`) ;
+- **`update: "disable"`** : la version est celle du tag d'image, pas d'auto-update.
+
 ## Ce qui est cuit dans l'image
 
 OpenCode + node/npm, git/ssh, Python 3, **Blender** (headless, symlink `blender`),
@@ -58,3 +71,24 @@ Python 3.14/musl. Le PDF reste couvert par `mutool`, `poppler`, `qpdf`, `gs`, `i
 
 - Le mot de passe du serveur va dans `/opt/stack/opencode/.env` (jamais dans le dépôt).
 - Les clés SSH du conteneur vivent dans `/root/workspace/.ssh/` (hors dépôt).
+
+## Configuration OpenCode (config/opencode.jsonc)
+
+La config **globale** (agents, permissions, compaction, modèle, commandes) est
+versionnée ici et copiée dans le conteneur :
+
+```bash
+docker compose cp config/opencode.jsonc opencode:/root/.config/opencode/opencode.jsonc
+```
+
+Règles retenues (01/11/2026) :
+
+- **Modèles en `opencode/...`** : depuis 2.2.5, l'ancien fournisseur `opencode-go`
+  est fusionné dans `opencode`. Un `opencode-go/...` ne résout plus → les sessions
+  retombent sur un modèle gratuit, refusé par le serveur.
+- **Config de projet séparée** : le commun vit dans la globale ; le spécifique
+  (MCP, watcher) reste dans l'`opencode.json` du projet. Les deux sont fusionnés —
+  un projet qui redéclare `model` masque donc la globale.
+- **`update: "disable"`** : la version est celle de l'image (tag figé) ; pas
+  d'auto-update dans un conteneur.
+- **`compaction.buffer: "60%"`** en pourcentage, pas en tokens.
