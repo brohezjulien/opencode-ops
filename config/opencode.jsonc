@@ -139,6 +139,16 @@
               "allow_fallbacks": false
             }
           }
+        },
+        "openai/gpt-6.1-terra": {
+          "body": {
+            "provider": {
+              "only": [
+                "openai"
+              ],
+              "allow_fallbacks": false
+            }
+          }
         }
       }
     }
