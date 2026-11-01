@@ -26,7 +26,7 @@
 #   .github/workflows/image.yml : build -> smoke-test.sh -> publication
 # En secours seulement, sur l'hôte :
 #   docker build -t opencode-toolbox:secours .
-FROM ghcr.io/anomalyco/opencode:2.1.2
+FROM ghcr.io/anomalyco/opencode:2.2.5
 
 RUN apk add --no-cache \
       nodejs npm git openssh-client curl tar gzip unzip \
