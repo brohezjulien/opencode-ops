@@ -2,20 +2,25 @@
 // horairiste-python). Le specifique a un projet (MCP, watcher) reste dans son
 // opencode.json : les deux niveaux sont charges et fusionnes.
 //
-//  - model : "opencode/..." (2.2.5 a fusionne l'ancien fournisseur `opencode-go`
-//    dans `opencode` ; un "opencode-go/..." ne resout plus et retombe sur un modele
-//    gratuit).
+// MODELE PAR DEFAUT (01/11/2026) : DeepSeek Flash via OpenRouter, EPINGLE sur le
+// fournisseur Morph (fp8). L'epinglage est dans `providers.openrouter.models` :
+//   body.provider = { only: ["morph/fp8"], allow_fallbacks: false }
+// Prouve par A/B : avec only=["fournisseur/bidon"], OpenRouter repond
+// "No allowed providers are available ... provider.only preference permits only".
+// ATTENTION : c'est du PAY-AS-YOU-GO (cle OpenRouter plafonnee a 50 $/jour), pas
+// l'abonnement OpenCode Console.
+//
 //  - update: disable — la version est geree par l'image ghcr.io/brohezjulien/
 //    opencode-toolbox (tag figé) ; l'auto-update dans un conteneur n'a pas de sens.
-//  - compaction.buffer en POURCENTAGE : 60% de la limite du modele (glm-5.3-flash
-//    327 680 -> compaction vers ~131 k au lieu de 278 k).
+//  - compaction.buffer en POURCENTAGE : 60% de la limite du modele.
 //  - pas de bloc `providers.limit` : le pourcentage s'adapte a chaque modele.
 //
-// Source de verite : depot opencode-ops. Copie versionnee : elearning7P/infra/opencode-global.jsonc
+// Source de verite : depot opencode-ops (config/opencode.jsonc).
+// Copie versionnee : elearning7P/infra/opencode-global.jsonc
 
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "opencode/glm-5.3-flash#max",
+  "model": "openrouter/deepseek/deepseek-v4.1-flash-1017",
   "experimental": {
     "todo": true
   },
@@ -60,18 +65,18 @@
       ]
     },
     "explore": {
-      "description": "Cherche et lit le code sans modifier — glm-5.3-flash#max : même prix que le flash, meilleur raisonnement pour la fouille et l'inventaire. Feuille : ne lance aucun sous-agent.",
+      "description": "Cherche et lit le code sans modifier — deepseek-v4.1-flash-1017 via Morph : même prix que le flash, meilleur raisonnement pour la fouille et l'inventaire. Feuille : ne lance aucun sous-agent.",
       "mode": "subagent",
-      "model": "opencode/glm-5.3-flash#max",
+      "model": "openrouter/deepseek/deepseek-v4.1-flash-1017",
       "steps": 30,
       "permissions": [
         {"action": "subagent", "resource": "*", "effect": "deny"}
       ]
     },
     "general": {
-      "description": "Recherche et analyse multi-étapes (plusieurs fichiers, recoupement, audit) — glm-5.3-flash#max : même prix que le flash, mais meilleur raisonnement. Feuille : ne lance aucun sous-agent.",
+      "description": "Recherche et analyse multi-étapes (plusieurs fichiers, recoupement, audit) — deepseek-v4.1-flash-1017 via Morph : même prix que le flash, mais meilleur raisonnement. Feuille : ne lance aucun sous-agent.",
       "mode": "subagent",
-      "model": "opencode/glm-5.3-flash#max",
+      "model": "openrouter/deepseek/deepseek-v4.1-flash-1017",
       "steps": 30,
       "permissions": [
         {"action": "subagent", "resource": "*", "effect": "deny"}
@@ -121,5 +126,21 @@
     {"action": "read", "resource": "*.env.*", "effect": "ask"},
     {"action": "read", "resource": "*.env.local", "effect": "ask"}
   ],
-  "update": "disable"
+  "update": "disable",
+  "providers": {
+    "openrouter": {
+      "models": {
+        "deepseek/deepseek-v4.1-flash-1017": {
+          "body": {
+            "provider": {
+              "only": [
+                "morph/fp8"
+              ],
+              "allow_fallbacks": false
+            }
+          }
+        }
+      }
+    }
+  }
 }
