@@ -1,19 +1,26 @@
-// Config GLOBALE OpenCode — commun a tous les projets (elearning7P, ecoledigitale,
-// horairiste-python). Le specifique a un projet (MCP, watcher) reste dans son
-// opencode.json : les deux niveaux sont charges et fusionnes.
+// Config GLOBALE OpenCode (V2, 2.2.5+) — commune aux 3 projets.
+// Le specifique a un projet (MCP, watcher, references) vit dans son opencode.json :
+// les deux niveaux sont charges et fusionnes (V2 : docs/instructions).
 //
-// MODELE PAR DEFAUT (01/11/2026) : DeepSeek Flash via OpenRouter, EPINGLE sur le
-// fournisseur Morph (fp8). L'epinglage est dans `providers.openrouter.models` :
-//   body.provider = { only: ["morph/fp8"], allow_fallbacks: false }
-// Prouve par A/B : avec only=["fournisseur/bidon"], OpenRouter repond
-// "No allowed providers are available ... provider.only preference permits only".
-// ATTENTION : c'est du PAY-AS-YOU-GO (cle OpenRouter plafonnee a 50 $/jour), pas
-// l'abonnement OpenCode Console.
+// MEMOIRE — les 4 couches utilisees ici :
+//  1. AGENTS.md hierarchique  -> toujours charge (global + racine), imbriques a la demande
+//  2. skills                  -> seule la description est listee ; corps charge sur appel
+//  3. compaction              -> resume + keep.tokens, ecrit par un modele PAS CHER
+//  4. policies                -> refus binaire, qu'aucun projet ne peut lever
+//  (references = knowledge externe, declare au niveau projet ; warming = desactive)
 //
-//  - update: disable — la version est geree par l'image ghcr.io/brohezjulien/
-//    opencode-toolbox (tag figé) ; l'auto-update dans un conteneur n'a pas de sens.
-//  - compaction.buffer en POURCENTAGE : 60% de la limite du modele.
-//  - pas de bloc `providers.limit` : le pourcentage s'adapte a chaque modele.
+// MODELES
+//  defaut + explore/general : DeepSeek Flash via OpenRouter, EPINGLE sur Morph (fp8)
+//  architecte               : GPT-6.1-Terra via OpenRouter, EPINGLE sur openai
+//  contre-audit             : gemini-4-argon (Console)   review : deepseek-v4-pro (Console)
+//  L'epinglage de fournisseur est dans `providers.openrouter.models.<id>.body.provider`
+//  (only + allow_fallbacks:false). Prouve par A/B : un `only` bidon fait repondre
+//  a OpenRouter "No allowed providers are available ... permits only: <bidon>".
+//  ATTENTION : pay-as-you-go (cle OpenRouter plafonnee), pas l'abonnement Console.
+//
+// CHAMPS VOLONTAIREMENT ABSENTS (deprecies dans le schema 2.2.5) :
+//  compaction.prune / tail_turns / preserve_recent_tokens / reserved,
+//  experimental.policies, subagent_depth, providers.limit, enabled/disabled_providers.
 //
 // Source de verite : depot opencode-ops (config/opencode.jsonc).
 // Copie versionnee : elearning7P/infra/opencode-global.jsonc
@@ -22,7 +29,8 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "openrouter/deepseek/deepseek-v4.1-flash-1017",
   "experimental": {
-    "todo": true
+    "todo": true,
+    "background_compaction": true
   },
   "compaction": {
     "auto": true,
@@ -96,6 +104,9 @@
         {"action": "shell", "resource": "git log *", "effect": "allow"},
         {"action": "shell", "resource": "git show *", "effect": "allow"}
       ]
+    },
+    "compaction": {
+      "model": "openrouter/deepseek/deepseek-v4.1-flash-1017"
     }
   },
   "commands": {
@@ -152,5 +163,12 @@
         }
       }
     }
-  }
+  },
+  "policies": [
+    {"action": "tool.use", "resource": "shell:*public_html*", "effect": "deny"},
+    {"action": "tool.use", "resource": "edit:/home/qnqrjakf/public_html/*", "effect": "deny"},
+    {"action": "tool.use", "resource": "shell:docker compose down -v*", "effect": "deny"},
+    {"action": "tool.use", "resource": "shell:docker system prune*", "effect": "deny"},
+    {"action": "tool.use", "resource": "shell:git push --force*", "effect": "deny"}
+  ]
 }
