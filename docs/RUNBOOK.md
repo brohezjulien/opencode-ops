@@ -2,10 +2,21 @@
 
 ## 1. Publier une nouvelle version d'OpenCode
 
-1. Dans `Dockerfile`, changer **une seule ligne** :
+1. Dans `Dockerfile`, changer **une seule ligne** (le `FROM`) : tag **et** digest.
    ```dockerfile
-   FROM ghcr.io/anomalyco/opencode:<nouvelle version>
+   FROM ghcr.io/anomalyco/opencode:2.3.2@sha256:be07cc4afd6d668d91b77accf1bc4338c87b39fbacc0a61666eb003781015f5a
    ```
+   Le digest se lit avec :
+   ```bash
+   docker buildx imagetools inspect ghcr.io/anomalyco/opencode:<version> \
+     | grep -i '^Digest'
+   ```
+   ⚠️ **Jamais le tag nu.** Un tag peut être repushé en amont : l'image changerait
+   sous nos pieds sans qu'aucun commit ne bouge. Et la CI ne rattrape pas cette
+   erreur : `.github/workflows/image.yml:35` lit la version avec
+   `s|^FROM .*opencode:\([0-9][^ @]*\).*|`, motif qui s'arrête au `@` et accepte
+   donc indifféremment le tag seul ou le tag+digest. Un tag nu passerait le smoke
+   test sans être signalé.
 2. Commit sur `main` → la CI construit, teste, publie.
 3. Noter le tag publié dans le résumé du run : `…:<version>-<AAAAMMJJ>-<sha>`.
 
@@ -33,6 +44,27 @@ docker exec "$(docker compose ps -q opencode)" sh -c \
 
 ⚠️ **La recréation tue la session tmux** (elle vit dans le conteneur). Ne jamais
 déployer pendant un audit en cours.
+
+## 2 bis. Contrôles après recréation
+
+`running` + `healthy` ne suffisent pas : le conteneur peut être en bonne santé
+alors que le service managé est tombé (il vit dans la session tmux, que la
+recréation vient justement de tuer). Vérifier, dans cet ordre :
+
+```bash
+cd /opt/stack/opencode
+docker compose ps opencode                                # running + healthy
+docker compose exec -T opencode opencode --version         # la version attendue
+docker compose exec -T opencode opencode service status    # doit afficher http://127.0.0.1:49374
+docker compose exec -T opencode opencode debug paths       # db = /root/.local/share/opencode/opencode.db
+docker compose exec -T opencode opencode plugin list       # les plugins attendus
+docker compose exec -T opencode opencode session list      # la base répond, code retour 0
+```
+
+Toutes ces commandes ont été passées sur l'image **2.3.2 le 19/11/2026**.
+`sqlite3` n'est **pas** installé dans l'image : ne pas compter sur lui pour
+interroger `opencode.db`, passer par `opencode session list` (ou installer
+l'outil dans le `Dockerfile`, jamais à chaud).
 
 ## 3. Rollback
 
